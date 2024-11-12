@@ -73,22 +73,48 @@ vader = SentimentIntensityAnalyzer()
 f = lambda title: vader.polarity_scores(title)['compound']
 df['compound'] = df['title'].apply(f)
 
+df = pd.DataFrame(parsed_data, columns=['ticker', 'date', 'time', 'title'])
+
 def convert_date(date_str):
   if date_str == 'Today':
     return pd.to_datetime('today')
   else:
     return date_str
-
+  
+def convert_time(time_str):
+  return pd.to_datetime(time_str)
+  
 df['date'] = df['date'].apply(convert_date)
 df['date'] = pd.to_datetime(df['date']).dt.date
+df['time'] = df['time'].apply(convert_time).dt.time
 
 work_df = df[['ticker', 'date', 'compound']]
 
-# plt.figure(figsize=(10, 8))
+plt.figure(figsize=(10, 8))
 
 mean_df = work_df.groupby(['ticker', 'date']).mean()
 mean_df = mean_df.unstack()
 mean_df = mean_df.xs('compound', axis=1).transpose()
+
+# Why do we need this `unstack()` and `xs()`
+# mean_df after `groupby().mean()`:
+# ticker | date       | compound
+# AAPL	 \ 2024-11-10 |	0.1
+# AAPL	 \ 2024-11-11 |	0.2
+# GOOG	 \ 2024-11-10 |	-0.1
+# GOOG	 \ 2024-11-11 |	0.3
+
+# It is more desirable for the .plot() function to have:
+# - Dates as the index (x-axis).
+# - Tickers as separate columns (one for each line on the plot).
+# - Sentiment scores as the values in these columns.
+
+# So we need to change the mean_df to be:
+# date	      | AAPL | GOOG
+# 2024-11-10	| 0.1 |	-0.1
+# 2024-11-11	| 0.2 |	0.3
+
+
 mean_df.plot(kind='line')
 plt.yticks(np.arange(-1, 1, 0.25))
 plt.grid()
